@@ -1,24 +1,22 @@
-# Gator
+# Gator 🐊
 
-Gator is a command-line RSS feed aggregator built with TypeScript, PostgreSQL, and Drizzle ORM.
-
-It allows multiple users to register, add RSS feeds, follow feeds, collect posts automatically, and browse aggregated posts from the command line.
+Gator is a command-line RSS feed aggregator built with TypeScript, PostgreSQL, and Drizzle ORM. It lets multiple users register, add RSS feeds, follow feeds other users have added, collect posts automatically in the background, and browse everything from the terminal.
 
 ## Requirements
 
 Before running Gator, make sure you have:
 
-* Node.js 22.15.0
-* PostgreSQL
-* npm
-* Git
+- Node.js 22.15.0 (there's an `.nvmrc` in the repo — run `nvm use` if you have nvm installed)
+- PostgreSQL (v16+)
+- npm
+- Git
 
 ## Installation
 
 Clone the repository and enter the project directory:
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/WafaaAlshaikh/gator.git
 cd gator
 ```
 
@@ -28,23 +26,27 @@ Install the dependencies:
 npm install
 ```
 
-Make sure PostgreSQL is running.
-
-On Ubuntu/WSL, you can start PostgreSQL with:
+Make sure PostgreSQL is running. On Ubuntu/WSL:
 
 ```bash
 sudo service postgresql start
 ```
 
+On macOS (with brew):
+
+```bash
+brew services start postgresql@16
+```
+
 ## Configuration
 
-Gator uses a configuration file located at:
+Gator is a multi-user CLI, but there's no server behind it — just a config file that lives in your home directory at:
 
 ```text
 ~/.gatorconfig.json
 ```
 
-Create the file with:
+It isn't created automatically, so make it yourself:
 
 ```json
 {
@@ -52,19 +54,17 @@ Create the file with:
 }
 ```
 
-The `db_url` should point to your PostgreSQL database.
+Swap in your own Postgres credentials. `sslmode=disable` is there because we're connecting locally and don't need SSL. Don't add `current_user_name` yourself — Gator sets that field automatically once you register or log in.
 
-The database should be named `gator`.
+## Database setup
 
-## Database Setup
-
-Create the database if it does not already exist:
+Create the database if it doesn't already exist:
 
 ```bash
 createdb gator
 ```
 
-Then run the database migrations:
+Then run the migrations to set up the tables:
 
 ```bash
 npx drizzle-kit migrate
@@ -81,13 +81,13 @@ npm run start <command> [args...]
 ### Register a user
 
 ```bash
-npm run start register Wafaa
+npm run start register wafaa
 ```
 
 ### Log in
 
 ```bash
-npm run start login Wafaa
+npm run start login wafaa
 ```
 
 ### List users
@@ -96,86 +96,72 @@ npm run start login Wafaa
 npm run start users
 ```
 
+Marks whoever's currently logged in with `(current)`.
+
 ### Add an RSS feed
 
 ```bash
 npm run start addfeed "Hacker News" https://hnrss.org/frontpage
 ```
 
-### List feeds
+This adds the feed and automatically follows it as the current user.
+
+### List all feeds
 
 ```bash
 npm run start feeds
 ```
 
-### Follow a feed
+### Follow a feed someone else added
 
 ```bash
 npm run start follow https://hnrss.org/frontpage
 ```
 
-### Show feeds followed by the current user
+### Unfollow a feed
+
+```bash
+npm run start unfollow https://hnrss.org/frontpage
+```
+
+### See what you're following
 
 ```bash
 npm run start following
 ```
 
-### Run the feed aggregator
-
-The `agg` command continuously fetches feeds.
-
-For example:
+### Run the aggregator
 
 ```bash
 npm run start agg 10s
 ```
 
-The argument specifies how long Gator waits between requests.
+`agg` fetches the least-recently-fetched feed on a repeating loop, and keeps running until you stop it. The argument is how long it waits between fetches — supported units are `ms`, `s`, `m`, and `h` (so `1m` means once a minute).
 
-Supported duration units include:
-
-* `ms` — milliseconds
-* `s` — seconds
-* `m` — minutes
-* `h` — hours
-
-Press `Ctrl+C` to stop the aggregator.
+Leave this running in its own terminal while you use other commands elsewhere. Stop it with `Ctrl+C`. Don't set the interval too aggressively — it's hitting real feeds on the internet.
 
 ### Browse posts
 
-After the aggregator has collected posts, browse them with:
+Once the aggregator has collected some posts:
 
 ```bash
 npm run start browse
 ```
 
-You can also specify how many posts to display:
+Defaults to 2 posts. You can ask for more:
 
 ```bash
 npm run start browse 5
 ```
 
-## Tech Stack
+### Reset (development only)
 
-* TypeScript
-* Node.js
-* PostgreSQL
-* Drizzle ORM
-* fast-xml-parser
-* RSS
-* Git / GitHub
+```bash
+npm run start reset
+```
 
-## Project Purpose
+Wipes the users table, which cascades and clears out feeds, follows, and posts along with it. Useful for starting fresh locally — not something you'd want in production.
 
-This project was built as a backend-focused learning project to practice:
+## Tech stack
 
-* CLI application development
-* PostgreSQL database design
-* ORM usage with Drizzle
-* Database migrations
-* SQL relationships and joins
-* REST/RSS data processing
-* Asynchronous programming
-* Background feed aggregation
-* TypeScript
-	
+TypeScript and Node.js on top of PostgreSQL, with Drizzle ORM handling queries and migrations and fast-xml-parser parsing the RSS feeds. Commands are dispatched through a small hand-rolled registry rather than a CLI framework, with a `middlewareLoggedIn` wrapper so commands that need a logged-in user don't each repeat the same check.
